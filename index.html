@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chatbot with Proxy</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="w-64 bg-gray-900 text-white p-6 flex flex-col">
+    <div class="mt-10">
+      <p class="text-sm">Welcome back,</p>
+      <h2 class="text-2xl font-semibold">USER</h2>
+    </div>
+  </aside>
+
+  <!-- Chat Area -->
+  <main class="flex-1 flex flex-col justify-between p-6 bg-white">
+    <!-- Messages -->
+    <div id="chat-box" class="space-y-4 overflow-y-auto max-h-[75vh] pr-2">
+      <!-- Messages appended here -->
+    </div>
+
+    <!-- Input -->
+    <div class="mt-6 flex items-center gap-2 bg-gray-100 p-4 rounded-xl shadow-md">
+      <button class="text-gray-500">📎</button>
+      <button class="text-gray-500">😊</button>
+      <input id="user-input" type="text" placeholder="Type a new message here" class="flex-1 px-4 py-2 bg-transparent outline-none" />
+      <button onclick="sendMessage()" class="text-blue-600 text-xl">➤</button>
+    </div>
+  </main>
+</div>
+
+<script>
+  const chatBox = document.getElementById("chat-box");
+  const userInput = document.getElementById("user-input");
+
+  function appendMessage(text, sender) {
+    const messageEl = document.createElement("div");
+    messageEl.classList.add("flex", "items-start", "gap-2");
+
+    if (sender === "bot") {
+      messageEl.innerHTML = `
+        <img src="https://i.ibb.co/G5kymP5/bot-avatar.png" class="w-8 h-8 rounded-full">
+        <div class="bg-gray-100 p-4 rounded-xl shadow-sm max-w-md whitespace-pre-wrap">🤖 ${text}</div>
+      `;
+    } else {
+      messageEl.classList.add("justify-end");
+      messageEl.innerHTML = `
+        <div class="bg-blue-100 p-4 rounded-xl shadow-sm max-w-md whitespace-pre-wrap">🧑‍💻 ${text}</div>
+        <img src="https://i.ibb.co/VwTzNnD/user-avatar.png" class="w-8 h-8 rounded-full">
+      `;
+    }
+
+    chatBox.appendChild(messageEl);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function showTyping() {
+    const typingEl = document.createElement("div");
+    typingEl.id = "typing-indicator";
+    typingEl.className = "flex items-start gap-2";
+    typingEl.innerHTML = `
+      <img src="https://i.ibb.co/G5kymP5/bot-avatar.png" class="w-8 h-8 rounded-full">
+      <div class="bg-gray-200 p-4 rounded-xl max-w-xs animate-pulse">Typing...</div>
+    `;
+    chatBox.appendChild(typingEl);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function hideTyping() {
+    const typingEl = document.getElementById("typing-indicator");
+    if (typingEl) typingEl.remove();
+  }
+
+  async function botReply(message) {
+    showTyping();
+
+    try {
+      const response = await fetch("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message }),
+      });
+
+      if (!response.ok) {
+        hideTyping();
+        const errorData = await response.json();
+        appendMessage(`⚠️ Error: ${response.status} ${errorData.error}`, "bot");
+        return;
+      }
+
+      const data = await response.json();
+      hideTyping();
+
+      let reply = "🤖 Sorry, I couldn't understand that.";
+      if (data && data.generated_text) {
+        reply = data.generated_text;
+      }
+
+      appendMessage(reply, "bot");
+    } catch (error) {
+      hideTyping();
+      appendMessage("⚠️ Error connecting to proxy server: " + error.message, "bot");
+    }
+  }
+
+  function sendMessage() {
+    const message = userInput.value.trim();
+    if (!message) return;
+
+    appendMessage(message, "user");
+    userInput.value = "";
+    botReply(message);
+  }
+
+  userInput.addEventListener("keypress", function (e) {
+    if (e.key === "Enter") sendMessage();
+  });
+</script>
+
+</body>
+</html>
